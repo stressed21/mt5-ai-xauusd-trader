@@ -65,9 +65,13 @@ class TradingConfig(BaseSettings):
     timeframe: VALID_TIMEFRAMES = Field(
         default="M5", description="The chart timeframe for analysis (e.g., M5, H1)"
     )
-    mode: Literal["demo", "live", "backtest"] = Field(
+    mode: Literal["offline", "demo", "live", "backtest"] = Field(
         default="demo",
-        description="Execution mode: demo, live, or backtest",
+        description=(
+            "Execution mode. offline is local paper trading with no broker. "
+            "demo and live both use the broker order path. backtest downloads "
+            "history through the broker connector."
+        ),
         validation_alias="MODE",
     )
     poll_interval: int = Field(

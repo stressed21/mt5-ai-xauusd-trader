@@ -25,7 +25,7 @@ RUN_PY := PYTHONPATH=. $(PYTHON_EXEC)
 # Resilient linter executable detection (prefers venv/python module, falls back to standalone CLI)
 RUFF_EXEC := $(shell if $(PYTHON_EXEC) -m ruff --version >/dev/null 2>&1; then echo "$(RUN_PY) -m ruff"; elif command -v ruff >/dev/null 2>&1; then echo "ruff"; else echo "$(RUN_PY) -m ruff"; fi)
 
-.PHONY: help bootstrap resync doctor test lint audit demo demo-synthetic demo-rl clean init setup validate-config backtest report status emergency-stop daily-summary analytics
+.PHONY: help bootstrap resync doctor test lint audit demo demo-synthetic demo-rl offline clean init setup validate-config backtest report status emergency-stop daily-summary analytics
 
 help:
 	@echo "MT5 AI/ML Trading Bot - Developer Commands"
@@ -37,7 +37,8 @@ help:
 	@echo "test           : Run unit and integration tests"
 	@echo "lint           : Run ruff linter and formatter"
 	@echo "audit          : Run security and dependency audit"
-	@echo "demo           : Run the bot in demo mode (requires MT5/MetaAPI)"
+	@echo "offline        : Run local paper mode (no broker connection)"
+	@echo "demo           : Run the bot in broker demo mode (requires MT5/MetaAPI)"
 	@echo "demo-synthetic : [QUICK] Run strategy benchmark demo with synthetic data"
 	@echo "demo-rl        : [QUICK] Run RL agent evaluation demo with synthetic data"
 	@echo "clean          : Remove temporary files and build artifacts"
@@ -72,6 +73,9 @@ audit:
 	@echo "Running dependency audit..."
 	$(PIP_EXEC) install pip-audit || true
 	$(VENV_BIN)/pip-audit || pip-audit || echo "pip-audit failed or not available, skipping detailed security audit."
+
+offline:
+	$(RUN_PY) main.py --mode offline --symbol XAUUSD
 
 demo:
 	$(RUN_PY) main.py --mode demo --symbol XAUUSD
