@@ -83,4 +83,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
 
 # Default execution entrypoint
 ENTRYPOINT ["python", "main.py"]
-CMD ["--mode", "demo", "--algo", "ensemble"]
+CMD ["--mode", "offline", "--algo", "ensemble"]

@@ -480,7 +480,9 @@ def run_live(
                     risk_decision = None
                     risk_approved = False
                     if direction != 0:
-                        risk_decision = risk.approve(signal, signal_id=signal_id, model_health=health)
+                        risk_decision = risk.approve(
+                            signal, signal_id=signal_id, model_health=health
+                        )
                         risk_approved = risk_decision.is_approved
 
                     if monitor and direction != 0:
@@ -538,7 +540,9 @@ def run_live(
 
                         risk_data = {
                             "passed": risk_approved,
-                            "rejection_reasons": [risk_decision.reason] if risk_decision and not risk_approved else [],
+                            "rejection_reasons": [risk_decision.reason]
+                            if risk_decision and not risk_approved
+                            else [],
                             "risk_reward": abs(signal.take_profit - price)
                             / abs(price - signal.stop_loss)
                             if abs(price - signal.stop_loss) > 0
@@ -834,7 +838,11 @@ def run_setup_wizard() -> int:
 
     # 1. Basic Info
     console.print("\n[bold]1. Execution Environment[/]")
-    mode = Prompt.ask("Select execution mode", choices=["demo", "live", "backtest"], default="demo")
+    mode = Prompt.ask(
+        "Select execution mode",
+        choices=["offline", "demo", "live", "backtest"],
+        default="offline",
+    )
     symbol = Prompt.ask("Default trading symbol", default="XAUUSD").upper()
     timeframe = Prompt.ask(
         "Default timeframe", choices=["M1", "M5", "M15", "M30", "H1", "H4", "D1"], default="M5"
@@ -845,43 +853,50 @@ def run_setup_wizard() -> int:
     risk_per_trade = Prompt.ask("Risk per trade (e.g. 0.01 for 1%)", default="0.01")
     poll_interval = Prompt.ask("Polling interval (seconds)", default="60")
 
-    # 2. MT5 Credentials
-    console.print("\n[bold]2. MetaTrader 5 Credentials[/]")
-
-    if platform.system() != "Windows":
-        console.print("[yellow]Notice: You are on a non-Windows platform.[/]")
-        console.print(
-            "[yellow]Native MT5 SDK requires Windows. You will likely need MetaAPI credentials for Linux/Mac.[/]\n"
-        )
-
-    login = IntPrompt.ask("MT5 Account Login (Number)", default=0)
-
-    # Use getpass for password to avoid echoing
-    password_val = ""
-    while not password_val:
-        password_val = getpass.getpass("MT5 Account Password: ")
-        if not password_val:
-            console.print("[red]Password cannot be empty.[/]")
-    password = SecretStr(password_val)
-    del password_val
-
-    server = Prompt.ask("MT5 Broker Server (e.g., IC-Markets-Demo)", default="YOUR_SERVER_HERE")
-
-    # 3. MetaAPI (Optional but recommended for Linux/Mac)
-    console.print("\n[bold]3. MetaAPI Cloud Fallback (Optional)[/]")
-    console.print("[dim]Required for non-Windows environments or cloud failover.[/]")
-    use_meta = Prompt.ask("Do you want to configure MetaAPI?", choices=["y", "n"], default="n")
+    # 2. MT5 Credentials are not used by offline paper mode.
+    login = 0
+    password = SecretStr("")
+    server = ""
     meta_token = None
     meta_id = ""
-    if use_meta == "y":
-        token_val = ""
-        while not token_val:
-            token_val = getpass.getpass("MetaAPI Token: ")
-            if not token_val:
-                console.print("[red]Token cannot be empty.[/]")
-        meta_token = SecretStr(token_val)
-        del token_val
-        meta_id = Prompt.ask("MetaAPI Account ID")
+    if mode == "offline":
+        console.print(
+            "\n[bold]2. Broker credentials[/]\n"
+            "[dim]Skipped. Offline paper mode does not read or store broker secrets.[/]"
+        )
+    else:
+        console.print("\n[bold]2. MetaTrader 5 Credentials[/]")
+        if platform.system() != "Windows":
+            console.print("[yellow]Notice: You are on a non-Windows platform.[/]")
+            console.print(
+                "[yellow]Native MT5 SDK requires Windows. "
+                "You will likely need MetaAPI credentials for Linux/Mac.[/]\n"
+            )
+
+        login = IntPrompt.ask("MT5 Account Login (Number)", default=0)
+
+        password_val = ""
+        while not password_val:
+            password_val = getpass.getpass("MT5 Account Password: ")
+            if not password_val:
+                console.print("[red]Password cannot be empty.[/]")
+        password = SecretStr(password_val)
+        del password_val
+
+        server = Prompt.ask("MT5 Broker Server (e.g., IC-Markets-Demo)", default="YOUR_SERVER_HERE")
+
+        console.print("\n[bold]3. MetaAPI Cloud Fallback (Optional)[/]")
+        console.print("[dim]Required for non-Windows environments or cloud failover.[/]")
+        use_meta = Prompt.ask("Do you want to configure MetaAPI?", choices=["y", "n"], default="n")
+        if use_meta == "y":
+            token_val = ""
+            while not token_val:
+                token_val = getpass.getpass("MetaAPI Token: ")
+                if not token_val:
+                    console.print("[red]Token cannot be empty.[/]")
+            meta_token = SecretStr(token_val)
+            del token_val
+            meta_id = Prompt.ask("MetaAPI Account ID")
 
     # 4. Confirm and Save
     console.print("\n[bold]4. Review & Save[/]")
@@ -967,7 +982,10 @@ Usage Examples:
   # Perform a pre-flight health check
   python main.py --check
 
-  # Start trading in DEMO mode with Ensemble algorithm
+  # Local paper session. No broker connection and no external orders.
+  python main.py --mode offline --symbol XAUUSD
+
+  # Broker demo session. This is not offline paper trading.
   python main.py --mode demo --symbol XAUUSD --algo ensemble
 
   # Start LIVE trading (requires explicit confirmation)
@@ -983,8 +1001,12 @@ Usage Examples:
     execution = p.add_argument_group("Execution Options")
     execution.add_argument(
         "--mode",
-        choices=["demo", "live", "backtest"],
-        help="Execution mode: 'demo' (paper), 'live' (real money), or 'backtest' (simulation).",
+        choices=["offline", "demo", "live", "backtest"],
+        help=(
+            "Execution mode: 'offline' (local paper, no broker), "
+            "'demo' (broker demo session), 'live' (real money), "
+            "or 'backtest' (historical broker data)."
+        ),
     )
     execution.add_argument(
         "--algo",
@@ -1189,7 +1211,70 @@ def run_backtest(
         connector.disconnect()
 
 
+_DIAGNOSTIC_FLAGS = {"--help", "-h", "--version", "--doctor", "--setup"}
+_BROKER_MODES = {"demo", "live", "backtest"}
+
+
+def _dotenv_mode(path: Path) -> str:
+    """Read only the MODE key. Other lines, including secrets, are ignored."""
+
+    if not path.is_file():
+        return ""
+    try:
+        lines = path.read_text(encoding="utf-8").splitlines()
+    except OSError:
+        return ""
+    for raw in lines:
+        line = raw.strip()
+        if line.startswith("MODE="):
+            return line.split("=", 1)[1].strip().strip("'\"").lower()
+    return ""
+
+
+def _cli_mode(argv: list[str]) -> str | None:
+    for index, arg in enumerate(argv):
+        if arg == "--mode" and index + 1 < len(argv):
+            return argv[index + 1].strip().lower()
+        if arg.startswith("--mode="):
+            return arg.split("=", 1)[1].strip().lower()
+    return None
+
+
+def _offline_cli_requested(argv: list[str]) -> bool:
+    if any(arg in _DIAGNOSTIC_FLAGS for arg in argv):
+        return False
+    cli_mode = _cli_mode(argv)
+    if cli_mode == "offline":
+        return True
+    if cli_mode in _BROKER_MODES:
+        return False
+    env_mode = os.environ.get("MODE", "").strip().lower()
+    if env_mode in _BROKER_MODES:
+        return False
+    dotenv_mode = _dotenv_mode(Path(__file__).resolve().parent / ".env")
+    return env_mode == "offline" or dotenv_mode == "offline"
+
+
+def _enter_offline(argv: list[str]) -> int:
+    """Load the offline runner without importing the broker package."""
+
+    import importlib.util
+
+    path = Path(__file__).resolve().parent / "src" / "trading" / "offline_paper.py"
+    spec = importlib.util.spec_from_file_location("offline_paper_entrypoint", path)
+    if spec is None or spec.loader is None:
+        print("CRITICAL: offline paper module is missing")
+        return 1
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return int(module.run_offline_from_argv(argv))
+
+
 def main() -> int:
+    if _offline_cli_requested(sys.argv[1:]):
+        return _enter_offline(sys.argv[1:])
+
     # Local imports of Rich for the entire main function to avoid UnboundLocalError
     # when an early exception occurs during bootstrap.
     try:
@@ -1374,6 +1459,9 @@ def main() -> int:
             print(f"\nTechnical details: {exc}")
             print("-" * 70)
         return 1
+
+    if cfg.mode == "offline":
+        return _enter_offline(sys.argv[1:])
 
     from src.core.log_config import get_masking_processor
 
@@ -1691,7 +1779,16 @@ def main() -> int:
         model = PPOAgent(model_path=ppo_path if ppo_path.exists() else None)  # type: ignore
     elif cfg.algorithm == "lstm":
         lstm_path = args.model_dir / "lstm_xauusd.pt"
-        model = LSTMModel(model_path=lstm_path if lstm_path.exists() else None)  # type: ignore
+        if not lstm_path.exists():
+            log.critical(
+                "Refusing LSTM execution without trained weights. "
+                "Random initialization is not allowed to submit orders.",
+                path=str(lstm_path),
+            )
+            if connector._is_initialized:
+                connector.disconnect()
+            return 2
+        model = LSTMModel(model_path=lstm_path)
     elif cfg.algorithm == "transformer":
         transformer_path = args.model_dir / "transformer_xauusd.pt"
         # Standard input_dim is 140 for the current feature engineer

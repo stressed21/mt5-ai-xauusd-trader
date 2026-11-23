@@ -16,7 +16,7 @@ services:
       - ./logs:/app/logs
       - ./models:/app/models:ro
     environment:
-      - MODE=${MODE:-demo}
+      - MODE=${MODE:-offline}
       - ALGO=${ALGO:-ensemble}
       - LOG_LEVEL=${LOG_LEVEL:-INFO}
       - PYTHONUNBUFFERED=1

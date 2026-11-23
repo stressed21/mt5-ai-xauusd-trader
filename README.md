@@ -61,6 +61,8 @@ The MT5 AI/ML Trading Bot is built for institutional-grade reliability. We prior
 | **Max Drawdown** | < 12% | Dynamic Equity Protection |
 | **Profit Factor** | 2.5+ | Gross Profit / Gross Loss |
 
+The figures above are targets. `docs/audits/walkforward_verification_report.md` does not publish measured results for them.
+
 ---
 
 ## 🛠️ Technology Stack
@@ -128,7 +130,17 @@ bash scripts/bootstrap.sh
 
 If `python3` points to another version, invoke the script from an activated Python 3.11 environment. The bootstrapper stops rather than creating a partially installed environment.
 
-### 2. Quick Evaluation (No-Config Demo)
+### 2. Offline paper session
+
+This is the broker-free path. It generates local bars, writes `data/offline/ledger.json`, and does not call MetaTrader or MetaAPI. Missing trained weights stop the session from opening a local fill. `external_order_count` stays 0.
+
+```bash
+python main.py --mode offline --symbol XAUUSD
+```
+
+Broker passwords and tokens in the environment are ignored and are not printed. `--mode live` and `--confirm-live` are rejected on this path. See [docs/OFFLINE_PAPER.md](./docs/OFFLINE_PAPER.md) for limits, including missing weight files and the Windows-only MT5 SDK.
+
+### 3. Quick Evaluation (No-Config Demo)
 You can evaluate the system's analytical and RL capabilities immediately using synthetic data, without requiring MT5 credentials or pre-trained models:
 
 ```bash
@@ -139,19 +151,25 @@ make demo-synthetic
 make demo-rl
 ```
 
-### 3. Configuration
+### 4. Configuration
 The system features an **Interactive Setup Wizard**. Simply run the bot, and it will offer to guide you through the configuration:
 ```bash
 python main.py
 ```
 
-Alternatively, create a `.env` file manually:
+Alternatively, create a `.env` file manually. The safe default is offline and leaves broker secrets empty:
+
 ```env
-MT5_LOGIN=your_account
-MT5_PASSWORD=your_password
-MT5_SERVER=your_broker_server
-MODE=demo
+MODE=offline
+SYMBOL=XAUUSD
+MT5_LOGIN=
+MT5_PASSWORD=
+MT5_SERVER=
+METAAPI_TOKEN=
+METAAPI_ACCOUNT_ID=
 ```
+
+`MODE=demo` and `MODE=live` open a broker session. They are not offline paper trading.
 
 For Docker Compose, create the environment file before starting the service:
 
@@ -160,7 +178,7 @@ cp .env.example .env
 docker compose up --build
 ```
 
-### 4. Execution
+### 5. Execution
 The CLI is designed to be **resilient**. Diagnostic commands work even if dependencies are not yet installed:
 
 ```bash
@@ -176,7 +194,10 @@ python main.py --show-config
 # Perform a pre-flight health check (connectivity, database, models)
 python main.py --check
 
-# Start trading in demo mode (CLI flags override .env)
+# Local paper session (no broker connection)
+python main.py --mode offline --symbol XAUUSD
+
+# Broker demo session. This submits broker orders and is not offline paper.
 python main.py --mode demo --symbol XAUUSD --algo ensemble
 
 # Start live trading (requires explicit confirmation)
